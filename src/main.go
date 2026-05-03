@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -19,7 +20,7 @@ import (
 	"time"
 )
 
-//go:embed  assets/page.html assets/wait.gif assets/yellowShoes.jpg assets/128.wav
+//go:embed assets/*
 var embedFs embed.FS
 
 var (
@@ -163,6 +164,11 @@ func main() {
 	fmt.Printf("%s Copyright (C) Evuraan <evuraan@gmail.com>\nThis program comes with ABSOLUTELY NO WARRANTY.\n", version)
 	parseArgs()
 	fmt.Printf("Using temp dir: %s, port: %s\n", tmpDir, port)
+	assetFs, err := fs.Sub(embedFs, staticFs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "asset fs err %v\n", err)
+		os.Exit(1)
+	}
 
 	if checkExec("nrsc5") {
 		nrsc5 = "nrsc5"
@@ -177,6 +183,7 @@ func main() {
 	go status.init()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stop", status.stopAll)
+	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetFs))))
 
 	mux.HandleFunc("/", rootHandler)
 	mux.HandleFunc("/main", mainPageHandler)
@@ -195,7 +202,7 @@ func main() {
 	mux.HandleFunc("/checkSettings", checkSettings)
 	mux.HandleFunc("/import", doImport)
 	mux.HandleFunc("/controls", controls)
-	err := http.ListenAndServe(":"+port, mux)
+	err = http.ListenAndServe(":"+port, mux)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "listen err %v\n", err)
 		os.Exit(1)
@@ -629,7 +636,7 @@ func checkSettings(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//bFreq=88.1&bProg=0&bukName=Samtha+Add+a+program+bookmark
+// bFreq=88.1&bProg=0&bukName=Samtha+Add+a+program+bookmark
 func validateBookmark(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "max-age=0")
 	bFreq := r.FormValue("bFreq")
