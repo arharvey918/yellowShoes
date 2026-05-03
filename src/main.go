@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -39,7 +38,6 @@ const (
 	page          = staticFs + "/page.html"
 	gif           = staticFs + "/wait.gif"
 	ico           = staticFs + "/yellowShoes.jpg"
-	controlJs     = staticFs + "/control.js"
 	catchup       = staticFs + "/128.wav"
 	EXTN          = "wav"
 	fileWaitConst = 42
@@ -126,7 +124,7 @@ func parseArgs() {
 
 	writeTo := fmt.Sprintf("%s/%s.txt", tmpDir, nibble(8))
 	writeThis := []byte("Test Write")
-	err := ioutil.WriteFile(writeTo, writeThis, 0644)
+	err := os.WriteFile(writeTo, writeThis, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: No write access to %s\n", tmpDir)
 		os.Exit(1)
@@ -201,7 +199,6 @@ func main() {
 	mux.HandleFunc("/valBookMark", validateBookmark)
 	mux.HandleFunc("/checkSettings", checkSettings)
 	mux.HandleFunc("/import", doImport)
-	mux.HandleFunc("/controls", controls)
 	err = http.ListenAndServe(":"+port, mux)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "listen err %v\n", err)
@@ -310,10 +307,6 @@ func gifHandler(w http.ResponseWriter, r *http.Request) {
 	etag := "favi121"
 	w.Header().Set("Etag", etag)
 	serveEmbed(gif, w)
-}
-
-func controls(w http.ResponseWriter, r *http.Request) {
-	serveEmbed(controlJs, w)
 }
 
 func serveEmbed(resname string, w http.ResponseWriter) (ok bool) {
@@ -523,7 +516,7 @@ func checkSettings(w http.ResponseWriter, r *http.Request) {
 		w.Write(info)
 	}()
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		checkErr(err)
 		return
