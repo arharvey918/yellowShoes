@@ -198,9 +198,18 @@ func main() {
 	}
 
 	go status.init()
+	mux := newMux(status, assetFs)
+	err = http.ListenAndServe(":"+port, mux)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "listen err %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func newMux(statusPtr *statusStruct, assetFS fs.FS) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/stop", status.stopAll)
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetFs))))
+	mux.HandleFunc("/stop", statusPtr.stopAll)
+	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetFS))))
 
 	mux.HandleFunc("/", rootHandler)
 	mux.HandleFunc("/main", mainPageHandler)
@@ -208,21 +217,17 @@ func main() {
 	mux.HandleFunc("/gif", gifHandler)
 	mux.HandleFunc("/basegif", baseGif)
 	mux.HandleFunc("/wav", wavHandler)
-	mux.HandleFunc("/getStream", status.getStream)
-	mux.HandleFunc("/getAudio", status.getAudio)
-	mux.HandleFunc("/getInfo", status.getInfo)
-	mux.HandleFunc("/whatsGoinOn", status.getActiveTag)
-	mux.HandleFunc("/getErrMsg", status.getErrMsg)
+	mux.HandleFunc("/getStream", statusPtr.getStream)
+	mux.HandleFunc("/getAudio", statusPtr.getAudio)
+	mux.HandleFunc("/getInfo", statusPtr.getInfo)
+	mux.HandleFunc("/whatsGoinOn", statusPtr.getActiveTag)
+	mux.HandleFunc("/getErrMsg", statusPtr.getErrMsg)
 	mux.HandleFunc("/getVersion", getVersion)
 	mux.HandleFunc("/lameCheck", lameCheck)
 	mux.HandleFunc("/valBookMark", validateBookmark)
 	mux.HandleFunc("/checkSettings", checkSettings)
 	mux.HandleFunc("/import", doImport)
-	err = http.ListenAndServe(":"+port, mux)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "listen err %v\n", err)
-		os.Exit(1)
-	}
+	return mux
 }
 
 func (statusPtr *statusStruct) init() {

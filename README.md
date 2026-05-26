@@ -87,6 +87,22 @@ Smoke-test startup without `nrsc5`:
 $ YELLOWSHOES_SMOKE=1 ./yellowShoes
 ```
 
+## Testing
+
+Run the Go integration tests from `src/`:
+
+```bash
+cd src && go test ./...
+```
+
+To run only the API integration coverage:
+
+```bash
+cd src && go test ./... -run '^TestAPIIntegration'
+```
+
+The integration suite uses an in-process HTTP server and forces smoke mode internally, so it does not require SDR hardware, `nrsc5`, or `YELLOWSHOES_SMOKE` in your shell.
+
 
 # Settings 
 ## Optional: rtl_tcp
