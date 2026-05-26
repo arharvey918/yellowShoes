@@ -10,6 +10,7 @@ CONTAINER_NAME="${APPLE_CONTAINER_NAME:-yellowshoes-dev}"
 HOST_WORKSPACE="${APPLE_CONTAINER_WORKSPACE:-${ROOT_DIR}}"
 CONTAINER_WORKSPACE="${APPLE_CONTAINER_WORKSPACE_FOLDER:-/workspaces/yellowShoes}"
 CONTAINER_HOME="${APPLE_CONTAINER_HOME:-/root}"
+CONTAINER_MEMORY="${APPLE_CONTAINER_MEMORY:-8G}"
 PORT_SPEC="${APPLE_CONTAINER_PORT:-8113:8113}"
 
 usage() {
@@ -61,6 +62,7 @@ run_container() {
         --detach \
         --name "${CONTAINER_NAME}" \
         --init \
+        --memory "${CONTAINER_MEMORY}" \
         --workdir "${CONTAINER_WORKSPACE}" \
         --volume "${HOST_WORKSPACE}:${CONTAINER_WORKSPACE}" \
         --publish "${PORT_SPEC}" \
