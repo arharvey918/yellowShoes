@@ -1,0 +1,430 @@
+openapi: 3.1.0
+info:
+  title: yellowShoes HTTP API
+  version: 3.0.1a
+  description: |
+    OpenAPI documentation for the yellowShoes HTTP surface. The service mixes UI/static
+    routes and API endpoints; both are documented here so refactors can preserve the full
+    contract used by the browser client.
+servers:
+  - url: http://localhost:8113
+tags:
+  - name: UI
+  - name: Playback
+  - name: Settings
+  - name: Diagnostics
+paths:
+  /:
+    get:
+      tags: [UI]
+      summary: Redirect to the main UI
+      responses:
+        '301':
+          description: Redirects to `./main`
+          headers:
+            Location:
+              schema:
+                type: string
+                example: ./main
+  /main:
+    get:
+      tags: [UI]
+      summary: Serve the main HTML application
+      responses:
+        '200':
+          description: HTML shell for the yellowShoes web client
+          content:
+            text/html:
+              schema:
+                type: string
+  /assets/{assetPath}:
+    get:
+      tags: [UI]
+      summary: Serve an embedded static asset
+      parameters:
+        - name: assetPath
+          in: path
+          required: true
+          description: Relative asset path under the embedded assets directory
+          schema:
+            type: string
+            example: app.js
+      responses:
+        '200':
+          description: Static asset body
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /favicon.ico:
+    get:
+      tags: [UI]
+      summary: Serve the application icon
+      responses:
+        '200':
+          description: JPEG icon payload
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+  /gif:
+    get:
+      tags: [UI]
+      summary: Serve the wait animation
+      responses:
+        '200':
+          description: Animated GIF payload
+          content:
+            image/gif:
+              schema:
+                type: string
+                format: binary
+  /basegif:
+    get:
+      tags: [UI]
+      summary: Return the wait animation as base64 text
+      responses:
+        '200':
+          description: Base64-encoded GIF payload
+          content:
+            text/plain:
+              schema:
+                type: string
+  /wav:
+    get:
+      tags: [UI]
+      summary: Serve the catch-up WAV clip used for late-joining clients
+      responses:
+        '200':
+          description: WAV payload
+          content:
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+  /getStream:
+    get:
+      tags: [Playback]
+      summary: Start a playback session and return its tag
+      parameters:
+        - name: freq
+          in: query
+          required: true
+          description: FM frequency between 88.0 and 108.0
+          schema:
+            type: string
+            example: '88.5'
+        - name: rtl_tcp
+          in: query
+          required: false
+          description: rtl_tcp host in `host:port` form, or `none`
+          schema:
+            type: string
+            default: none
+            example: none
+        - name: program
+          in: query
+          required: false
+          description: HD subchannel index
+          schema:
+            type: string
+            default: '0'
+            example: '1'
+        - name: format
+          in: query
+          required: false
+          description: Preferred stream format. `mp3` is primarily used for iOS playback.
+          schema:
+            type: string
+            enum: [wav, mp3]
+            default: wav
+      responses:
+        '200':
+          description: Playback tag, or a plain-text error string when rtl_tcp cannot be reached
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: a1B2c3D4e5F6g7H8
+        '400':
+          description: Missing required `freq` parameter
+        '502':
+          description: Backend stream startup failed
+  /getAudio:
+    get:
+      tags: [Playback]
+      summary: Stream live audio for a playback tag
+      parameters:
+        - name: tag
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Live audio stream in WAV or MP3 format
+          content:
+            audio/x-wav:
+              schema:
+                type: string
+                format: binary
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+            text/plain:
+              schema:
+                type: string
+                description: Plain-text process error when startup already failed
+        '412':
+          description: Missing or unknown playback tag
+  /getInfo:
+    get:
+      tags: [Playback]
+      summary: Fetch metadata for a playback tag
+      parameters:
+        - name: tag
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: |
+            Playback metadata as JSON. If the tag is missing or unknown, the handler returns
+            HTTP 200 with an empty body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackInfo'
+  /whatsGoinOn:
+    get:
+      tags: [Playback]
+      summary: Report the currently active playback session
+      responses:
+        '200':
+          description: |
+            Active session JSON while at least one `/getAudio` client is connected, or
+            `No_Active_Tags` when no audio client is connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveSession'
+            text/plain:
+              schema:
+                type: string
+                example: No_Active_Tags
+  /stop:
+    get:
+      tags: [Playback]
+      summary: Stop active playback processes
+      responses:
+        '200':
+          description: Stop request accepted
+  /getErrMsg:
+    get:
+      tags: [Diagnostics]
+      summary: Return accumulated backend log lines
+      responses:
+        '200':
+          description: Plain-text log output. When no messages are available the body is empty.
+          content:
+            text/plain:
+              schema:
+                type: string
+  /getVersion:
+    get:
+      tags: [Diagnostics]
+      summary: Return the application version string
+      responses:
+        '200':
+          description: Version text
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: yellowShoes Ver 3.0.1a
+  /lameCheck:
+    get:
+      tags: [Diagnostics]
+      summary: Check whether the MP3 encoder is available
+      responses:
+        '200':
+          description: Encoder availability
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum: [OK, No lame]
+  /valBookMark:
+    post:
+      tags: [Settings]
+      summary: Validate a bookmark submission
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [bFreq, bProg, bukName]
+              properties:
+                bFreq:
+                  type: string
+                  example: '88.5'
+                bProg:
+                  type: string
+                  example: '1'
+                bukName:
+                  type: string
+                  example: Jazz Hour
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkValidationResponse'
+  /checkSettings:
+    post:
+      tags: [Settings]
+      summary: Validate and export settings into a Lace key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: |
+                Settings payload plus optional bookmark entries keyed as
+                `freq=<frequency>&program=<program>`.
+              additionalProperties:
+                type: string
+              properties:
+                rtlTCP:
+                  type: string
+                  example: none
+                playerTimeout:
+                  type: string
+                  example: '30000'
+                streamingFormat:
+                  type: string
+                  enum: [wav, mp3]
+      responses:
+        '200':
+          description: Validation result and export key when successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsExportResponse'
+  /import:
+    post:
+      tags: [Settings]
+      summary: Import settings from a Lace key
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [laceKey]
+              properties:
+                laceKey:
+                  type: string
+      responses:
+        '200':
+          description: Imported settings payload, or `status: false` when the key is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsImportResponse'
+components:
+  schemas:
+    ActiveSession:
+      type: object
+      required: [tag, freq]
+      properties:
+        tag:
+          type: string
+        freq:
+          type: string
+          example: '88.5'
+    PlaybackInfo:
+      type: object
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: integer
+      properties:
+        tag:
+          type: string
+        freq:
+          type: string
+          example: '88.5'
+        programIndex:
+          type: string
+          example: '1'
+        Format:
+          type: string
+          enum: [wav, mp3]
+        Mode:
+          type: string
+          example: smoke
+        Title:
+          type: string
+        Station name:
+          type: string
+        Slogan:
+          type: string
+        Artist:
+          type: string
+        Album:
+          type: string
+        Genre:
+          type: string
+        Audio bit rate:
+          type: string
+        BER:
+          type: string
+        MER:
+          type: string
+        Audio component:
+          type: string
+        SIGCT:
+          type: integer
+    BookmarkValidationResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: boolean
+        bFreq:
+          type: string
+        Prog:
+          type: string
+        bukName:
+          type: string
+    SettingsExportResponse:
+      type: object
+      description: |
+        Validation/export result. Successful responses include `status: true` and a `lace`
+        key. Some early validation failures return only an `err` field without `status`.
+      properties:
+        status:
+          type: boolean
+        lace:
+          type: string
+        err:
+          type: string
+    SettingsImportResponse:
+      type: object
+      description: Imported settings plus the mandatory `status` field.
+      required: [status]
+      properties:
+        status:
+          type: boolean
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: boolean
