@@ -23,11 +23,12 @@ import (
 var embedFs embed.FS
 
 var (
-	tmpDir  = ""
-	port    = ""
-	status  = &statusStruct{cmdMap: make(map[*exec.Cmd]bool), tagMap: make(map[string]*tagStruct)}
-	nrsc5   = ""
-	lookFor = []string{"Title", "Station name", "Slogan", "Artist", "Album", "Genre", "Audio bit rate", "BER", "MER", "Audio component"}
+	tmpDir    = ""
+	port      = ""
+	status    = &statusStruct{cmdMap: make(map[*exec.Cmd]bool), tagMap: make(map[string]*tagStruct)}
+	nrsc5     = ""
+	smokeMode = false
+	lookFor   = []string{"Title", "Station name", "Slogan", "Artist", "Album", "Genre", "Audio bit rate", "BER", "MER", "Audio component"}
 	// mustStatOk = []string{page, gif, ico, catchup}
 )
 
@@ -48,6 +49,7 @@ const (
 	seekDelta     = 8192
 	lame          = "lame"
 	deadBeat      = 50
+	smokeModeEnv  = "YELLOWSHOES_SMOKE"
 )
 
 type statusStruct struct {
@@ -79,6 +81,7 @@ type tagStruct struct {
 }
 
 func parseArgs() {
+	smokeMode = envTruthy(smokeModeEnv)
 	argc := len(os.Args)
 	switch argc {
 	case 2:
@@ -132,6 +135,16 @@ func parseArgs() {
 	os.Remove(writeTo)
 }
 
+func envTruthy(name string) bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 func nibble(span int) string {
 	b := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	x := ""
@@ -150,6 +163,7 @@ func showhelp() {
 	fmt.Println("  -t  --tempFolder   temp folder with write access to use")
 	fmt.Println("  -p  --port         port to use")
 	fmt.Println("  -v  --version      print version information and exit")
+	fmt.Printf("  %s=1   start with a generated WAV stream instead of nrsc5\n", smokeModeEnv)
 }
 
 func invalidUsage() {
@@ -162,20 +176,25 @@ func main() {
 	fmt.Printf("%s Copyright (C) Evuraan <evuraan@gmail.com>\nThis program comes with ABSOLUTELY NO WARRANTY.\n", version)
 	parseArgs()
 	fmt.Printf("Using temp dir: %s, port: %s\n", tmpDir, port)
+	if smokeMode {
+		fmt.Printf("Smoke mode enabled via %s\n", smokeModeEnv)
+	}
 	assetFs, err := fs.Sub(embedFs, staticFs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "asset fs err %v\n", err)
 		os.Exit(1)
 	}
 
-	if checkExec("nrsc5") {
-		nrsc5 = "nrsc5"
-	} else if checkExec("nrsc5.exe") {
-		nrsc5 = "nrsc5.exe"
-	}
-	if len(nrsc5) < 1 {
-		fmt.Fprintf(os.Stderr, "Error 11.1 - Could not locate nrsc5 binary\n")
-		os.Exit(1)
+	if !smokeMode {
+		if checkExec("nrsc5") {
+			nrsc5 = "nrsc5"
+		} else if checkExec("nrsc5.exe") {
+			nrsc5 = "nrsc5.exe"
+		}
+		if len(nrsc5) < 1 {
+			fmt.Fprintf(os.Stderr, "Error 11.1 - Could not locate nrsc5 binary\n")
+			os.Exit(1)
+		}
 	}
 
 	go status.init()
@@ -263,13 +282,27 @@ func (statusPtr *statusStruct) killAll() bool {
 
 	newCmdMap := make(map[*exec.Cmd]bool)
 	newTagMap := make(map[string]*tagStruct)
+	stoppedTags := make(map[*tagStruct]bool)
 
 	self.Lock()
 	oldCmdMap := self.cmdMap
+	oldTagMap := self.tagMap
 	self.cmdMap = newCmdMap
 	self.tagMap = newTagMap
 	self.audioConnections = 0
 	self.Unlock()
+
+	for _, tag := range oldTagMap {
+		if tag == nil || stoppedTags[tag] {
+			continue
+		}
+		stoppedTags[tag] = true
+		tag.Lock()
+		tag.goner = true
+		tag.done = true
+		tag.Unlock()
+		x++
+	}
 
 	for k := range oldCmdMap {
 		go k.Process.Kill()

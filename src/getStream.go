@@ -25,9 +25,12 @@ func (statusPtr *statusStruct) getStream(w http.ResponseWriter, r *http.Request)
 		rtlTcp = "none"
 	}
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	rtlCheckStatus := false
-	go checkRTL(rtlTcp, wg, &rtlCheckStatus)
+	rtlCheckStatus := true
+	if !smokeMode {
+		wg.Add(1)
+		rtlCheckStatus = false
+		go checkRTL(rtlTcp, wg, &rtlCheckStatus)
+	}
 
 	tag := nibble(16)
 
@@ -58,6 +61,9 @@ func (statusPtr *statusStruct) getStream(w http.ResponseWriter, r *http.Request)
 		codec := qstrings.Get("format")
 		ourNewTag.isIOS = (codec == "mp3")
 	}
+	if smokeMode {
+		ourNewTag.isIOS = false
+	}
 
 	exten := EXTN
 	if ourNewTag.isIOS {
@@ -75,12 +81,14 @@ func (statusPtr *statusStruct) getStream(w http.ResponseWriter, r *http.Request)
 
 	stdbuf := checkExec("stdbuf")
 
-	wg.Wait()
-	if !rtlCheckStatus {
-		msg := fmt.Sprintf("Error: could not reach your rtltcp-host: %s", rtlTcp)
-		fmt.Fprint(w, msg)
-		fmt.Println(msg)
-		return
+	if !smokeMode {
+		wg.Wait()
+		if !rtlCheckStatus {
+			msg := fmt.Sprintf("Error: could not reach your rtltcp-host: %s", rtlTcp)
+			fmt.Fprint(w, msg)
+			fmt.Println(msg)
+			return
+		}
 	}
 
 	// push the reaper a bit away
@@ -88,7 +96,15 @@ func (statusPtr *statusStruct) getStream(w http.ResponseWriter, r *http.Request)
 
 	giveTag := false
 
-	if !ourNewTag.isIOS {
+	if smokeMode {
+		ourNewTag.cmd = "generated wav smoke stream"
+		err := ourNewTag.runSmoke()
+		if err == nil {
+			giveTag = true
+		} else {
+			w.WriteHeader(http.StatusBadGateway)
+		}
+	} else if !ourNewTag.isIOS {
 		ourNewTag.cmd = fmt.Sprintf("%s %s %s -o %s", nrsc5, freq, ourNewTag.programIndex, ourNewTag.audioFile)
 		if ourNewTag.rtlTcp != "none" {
 			ourNewTag.cmd = fmt.Sprintf("%s -H %s", ourNewTag.cmd, ourNewTag.rtlTcp)
@@ -176,7 +192,6 @@ func (statusPtr *statusStruct) getStream(w http.ResponseWriter, r *http.Request)
 		fmt.Fprintf(w, "%s", tag)
 		go self.beepBoop()
 	}
-	return
 }
 
 func checkRTL(rtlInfo string, wg *sync.WaitGroup, rtlCheckStatusPtr *bool) bool {

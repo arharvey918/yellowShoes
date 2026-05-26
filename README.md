@@ -11,6 +11,7 @@ If you have an <a href="https://www.amazon.com/gp/product/B011HVUEME">SDR Dongle
 # Requirements
 * You must have <a href="https://github.com/theori-io/nrsc5">nrsc5</a> compiled and installed. The `nrsc5` binary must be in your `PATH`. 
 * Optional Requirement: If you want mp3 playback (or have IOS devices), you will need `lame` encoder binary in your `PATH`. See [IOS Playback](./IOS/README.md) section.
+* Smoke test mode: set `YELLOWSHOES_SMOKE=1` to boot without `nrsc5` and serve a generated endless WAV stream instead.
 
 # New Features 
 ## Webamp and Milkdrop 
@@ -79,6 +80,11 @@ Usage of ./yellowShoes-linux-amd64:
   -tempFolder string
     	temp folder with write access to use (default "/tmp")
   -v	print version information and exit
+```
+
+Smoke-test startup without `nrsc5`:
+```bash
+$ YELLOWSHOES_SMOKE=1 ./yellowShoes
 ```
 
 
