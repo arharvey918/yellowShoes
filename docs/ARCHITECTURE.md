@@ -35,7 +35,7 @@ embedded single-page application (SPA).
 
 ![Component Overview](./component-overview.svg)
 
-> **Edit this diagram:** [Open in Excalidraw](https://excalidraw.com/#url=https%3A%2F%2Fraw.githubusercontent.com%2Farharvey918%2FyellowShoes%2Fpr-refactor%2Fdocs%2Fcomponent-overview.excalidraw)
+[Open in Excalidraw](https://excalidraw.com/#url=https%3A%2F%2Fraw.githubusercontent.com%2Farharvey918%2FyellowShoes%2Fpr-refactor%2Fdocs%2Fcomponent-overview.excalidraw)
 
 ---
 
@@ -160,13 +160,14 @@ sequenceDiagram
         Server-->>Browser: "OK" or "No lame"
     and
         Browser->>Server: GET /whatsGoinOn
-        Server-->>Browser: No_Active_Tags or {tag, freq}
+        Server-->>Browser: "No_Active_Tags" or JSON tag+freq
     and
         Browser->>Server: GET /getVersion
         Server-->>Browser: "yellowShoes Ver 3.0.1a"
     end
 
-    Note over Browser: enforceDeviceRules()<br/>iOS → force MP3; block if no lame
+    Note over Browser: enforceDeviceRules()
+    Note over Browser: iOS forces MP3, blocks if no lame
     Note over Browser: render() → UI ready
 ```
 
@@ -333,7 +334,7 @@ sequenceDiagram
     loop every 3 seconds (browser)
         Browser->>Server: GET /getInfo?tag=<tag>
         Server->>session: metadataSnapshot()
-        Server-->>Browser: JSON {tag, freq, Title, Artist, BER, …, SIGCT}
+        Server-->>Browser: JSON: tag, freq, Title, Artist, BER, …, SIGCT
         Note over Browser: render() — updates metadata grid,<br/>program pills (SIGCT), track line
     end
 ```
@@ -353,7 +354,7 @@ sequenceDiagram
     participant tmpDir as Audio Temp File
 
     Browser2->>Server: GET /whatsGoinOn
-    Server-->>Browser2: {"tag": "<tag>", "freq": "88.5"}
+    Server-->>Browser2: JSON: "tag" + "freq" fields
 
     Note over Browser2: joinActiveSession()
     Browser2->>Server: GET /getAudio?tag=<tag>&r=<random>
@@ -434,7 +435,7 @@ sequenceDiagram
 
     Note over Browser: user opens Settings dialog → Export
 
-    Browser->>Browser: buildSettingsPayload()<br/>{rtlTCP, playerTimeout, streamingFormat,<br/>"freq=X&program=Y": "Bookmark Name", …}
+    Browser->>Browser: buildSettingsPayload()<br/>rtlTCP, playerTimeout, streamingFormat,<br/>"freq=X&program=Y": "Bookmark Name", …
     Browser->>Server: POST /checkSettings  body: JSON payload
     Server->>Server: validate rtlTCP (portCheck if not "none")
     Server->>Server: validate playerTimeout (Atoi)
@@ -442,7 +443,7 @@ sequenceDiagram
     Server->>Server: validate each freq=…&program=… bookmark entry
     Server->>Server: randomToken(6) → laceKey
     Server->>tmpDir: write <laceKey>.lace  (JSON)
-    Server-->>Browser: {"status": true, "lace": "<6-char key>"}
+    Server-->>Browser: JSON: status=true, lace="<6-char key>"
     Note over Browser: display lace key to user
 ```
 
@@ -461,7 +462,7 @@ sequenceDiagram
     Browser->>Server: POST /import  body: laceKey=<6-char key>
     Server->>tmpDir: open <laceKey>.lace
     Server->>Server: json.Decode → response map
-    Server-->>Browser: {"status": true, "rtlTCP": "…", "freq=…": "Name", …}
+    Server-->>Browser: JSON: status=true, rtlTCP, freq+program bookmarks, …
     Note over Browser: forEach key → localStorage.setItem(key, value)
     Note over Browser: hydrateSettings() + enforceDeviceRules()
     Note over Browser: render() — UI reflects imported settings
@@ -482,7 +483,7 @@ sequenceDiagram
     Server->>Server: validateFrequency(bFreq)
     Server->>Server: validateProgram(bProg)
     Server->>Server: validateBookmarkName(bukName)
-    Server-->>Browser: {"status": true, "bFreq": "88.5", "Prog": "1", "bukName": "Jazz Hour"}
+    Server-->>Browser: JSON: status=true, bFreq="88.5", Prog="1", bukName="Jazz Hour"
 
     Browser->>Browser: key = "freq=88.5&program=1"
     Browser->>Browser: localStorage.setItem(key, "Jazz Hour")
@@ -501,7 +502,7 @@ sequenceDiagram
 
     Note over Browser: user clicks bookmark chip
 
-    Browser->>Browser: parseBookmarkKey("freq=88.5&program=1")<br/>→ {freq: "88.5", program: "1"}
+    Browser->>Browser: parseBookmarkKey("freq=88.5&program=1")<br/>→ freq="88.5", program="1"
     Browser->>Browser: startStreamPlayback("88.5", "1")
     Browser->>Server: GET /stop  (clear any prior session)
     Browser->>Server: GET /getStream?freq=88.5&program=1&format=wav
