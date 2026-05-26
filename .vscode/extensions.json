@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "GitHub.copilot",
+    "GitHub.copilot-chat",
+    "golang.Go",
+    "ms-vscode-remote.remote-containers"
+  ]
+}
